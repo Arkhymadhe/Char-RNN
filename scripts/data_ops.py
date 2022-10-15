@@ -1,6 +1,7 @@
 import PyPDF3
 import numpy as np
 from collections import namedtuple
+from typing import Tuple
 
 
 def get_text(fpath):
@@ -13,8 +14,7 @@ def get_text(fpath):
     return text
 
 
-def encode_text(text, extend = True, unique_chars = None)
-    -> Tuple[np.ndarray, list, dict, dict]:
+def encode_text(text : str, extend : bool = True, unique_chars : set = None) -> Tuple[np.ndarray, list, dict, dict]:
     '''
     Takes in a piece of text and encodes the characters of the text by unique numerical identifiers.
     
@@ -27,7 +27,7 @@ def encode_text(text, extend = True, unique_chars = None)
     unique_chars
         Set of unique characters
     
-    Results
+    Returns
     -------
     out
         A Tuple containing the encoded text, the set of unique characters, mapping from numerical code to character,
@@ -85,36 +85,5 @@ def one_hot_encode(arr, n_labels):
     one_hot = one_hot.reshape((*arr.shape, n_labels))
     
     return one_hot
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
