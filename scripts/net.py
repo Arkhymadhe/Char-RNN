@@ -48,9 +48,8 @@ class CharRNN(nn.Module):
         num_layers=2,
         output_size=32,
         base_rnn=nn.LSTM,
-        device="cpu"
+        device="cpu",
     ):
-
         super(CharRNN, self).__init__()
 
         self.base_rnn = base_rnn
@@ -106,3 +105,14 @@ class CharRNN(nn.Module):
             h = (h, c)
 
         return h
+
+
+def get_base_rnn(name):
+    if name.lower() == 'lstm':
+        base_rnn = nn.LSTM
+    elif name.lower() == 'gru':
+        base_rnn = nn.GRU
+    else:
+        base_rnn = nn.RNN
+
+    return base_rnn

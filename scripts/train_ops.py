@@ -1,21 +1,47 @@
 import torch
+from matplotlib import pyplot as plt
+
 from data_ops import one_hot_encode, batch_sequence
 from torch import nn
 
 
+def visualize_losses(running_train_loss, running_val_loss):
+    plt.figure(figsize=(20, 10))
+
+    plt.plot(range(len(running_train_loss)), running_train_loss, range(len(running_val_loss)), running_val_loss)
+
+    plt.xlabel("Iterations")
+    plt.ylabel("Loss")
+
+    plt.suptitle("Loss over iterations (LSTM)", fontsize=20)
+    plt.legend()
+
+    plt.show()
+    plt.close("all")
+
+    return
+
+
 def train_model(
-        model,
-        opt,
-        train_data,
-        test_data,
-        criterion,
-        epochs,
-        batch_size,
-        seq_length,
-        max_norm,
-        device=None,
-        code_size=83
+    model,
+    optimizer,
+    train_data,
+    test_data,
+    criterion,
+    epochs,
+    batch_size,
+    seq_length,
+    max_norm,
+    device=None,
+    code_size=83,
+    plot_losses=False
 ):
+
+    running_train_loss = list()
+    running_val_loss = list()
+
+    num_batches = train_data.size // (seq_length*batch_size)
+
     ### Outer training loop
     for epoch in range(1, epochs + 1):
         train_h = model.init_hidden_state(mean=0.0, stddev=0.5)
@@ -35,7 +61,7 @@ def train_model(
                 if type(train_h) == tuple
                 else train_h.data
             )
-            opt.zero_grad()
+            optimizer.zero_grad()
 
             outputs, train_h = model(X, train_h)
 
@@ -48,7 +74,7 @@ def train_model(
 
             loss.backward(retain_graph=True)
             nn.utils.clip_grad_norm_(model.parameters(), max_norm)
-            opt.step()
+            optimizer.step()
 
             train_losses.append(loss.item())
 
@@ -59,33 +85,37 @@ def train_model(
                 model.eval()
                 val_h = model.init_hidden_state(mean=0.0, stddev=0.5)
 
-                ### Inner validation loop
-                for X_, y_ in batch_sequence(test_data, batch_size, seq_length)[0]:
-                    i += 1
+                with torch.inference_mode():
+                    ### Inner validation loop
+                    for X_, y_ in batch_sequence(test_data, batch_size, seq_length)[0]:
+                        i += 1
 
-                    val_h = (
-                        tuple([each.data.to(device) for each in val_h])
-                        if type(val_h) == tuple
-                        else val_h.data
-                    )
+                        val_h = (
+                            tuple([each.data.to(device) for each in val_h])
+                            if type(val_h) == tuple
+                            else val_h.data
+                        )
 
-                    X_ = torch.as_tensor(one_hot_encode(X_, code_size)).to(device)
-                    y_ = torch.as_tensor(y_).to(device)
+                        X_ = torch.as_tensor(one_hot_encode(X_, code_size)).to(device)
+                        y_ = torch.as_tensor(y_).to(device)
 
-                    outputs_, val_h = model(X_, val_h)
+                        outputs_, val_h = model(X_, val_h)
 
-                    val_loss = criterion(
-                        outputs_,
-                        y_.reshape(
-                            -1,
-                        ).long(),
-                    )
-                    val_losses.append(val_loss.item())
+                        val_loss = criterion(
+                            outputs_,
+                            y_.reshape(
+                                -1,
+                            ).long(),
+                        )
+                        val_losses.append(val_loss.item())
 
-                ### Report training and validation losses
-                val_loss = torch.Tensor(val_losses).mean().item()
+                    ### Report training and validation losses
+                    val_loss = torch.Tensor(val_losses).mean().item()
 
-                train_loss = torch.Tensor(train_losses).mean().item()
+                    train_loss = torch.Tensor(train_losses).mean().item()
+
+                running_train_loss.append(train_loss)
+                running_val_loss.append(val_loss)
 
                 print("=" * 80)
                 print(
@@ -94,7 +124,12 @@ def train_model(
                 )
 
         print("\n" + "=" * 80)
-        print("=" * 80)
+        print("=" * 80, end="\n\n")
         # print('='*60)
         # print(f'Epoch: {epoch}/{epochs}, Train Loss: {train_loss:.4f}, Valid Loss: {val_loss:.4f}\n')
         # print('='*60)
+
+    if plot_losses:
+        visualize_losses(running_train_loss, running_val_loss)
+
+    return model, optimizer

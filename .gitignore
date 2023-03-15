@@ -1,7 +1,10 @@
 notebooks/.ipynb_checkpoints/*
+scripts/.ipynb_checkpoints/*
 /.idea
 notebooks/GRU.ipynb
 notebooks/*predict.ipynb
 notebooks/*retrain.ipynb
-notebooks/Untitled.ipynb
+notebooks/Untitled*.ipynb
 notebooks/*Copy1.ipynb
+/artefacts/*.pkl
+scripts/__pycache__/

@@ -1,0 +1,10 @@
+{
+    "batch_size": 128,
+    "D": 1,
+    "dropout": 0.5,
+    "num_layers": 2,
+    "hidden_size": 512,
+    "base_rnn": "lstm",
+    "input_size": 83,
+    "output_size": 83
+}
