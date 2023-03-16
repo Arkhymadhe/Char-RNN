@@ -1,26 +1,35 @@
 import json
 import os
 import shutil
+from typing import Union
 
 import torch
 from torch import nn, optim
 
-from data_ops import get_text, encode_text, get_char_mapping, batch_sequence, split_data
-from scripts.inference_ops import text_predict, prime_model
-from scripts.net import CharRNN, get_base_rnn
-from scripts.train_ops import train_model
+from data_ops import get_text, encode_text, split_data
+from inference_ops import text_predict, prime_model
+from net import CharRNN, get_base_rnn
+from train_ops import train_model
+
+from argparse import ArgumentParser
 
 
-def main(op):
-    device = 'cuda'
+def main():
+    args = ArgumentParser()
+    args = parse_args(args)
+    args = args.parse_args()
 
-    if op.lower() == "train":
+    device = torch.device(
+        'cuda' if torch.cuda.is_available() else 'cpu'
+    )
+
+    if args.op.lower() == "train":
         path = os.path.join(
             os.getcwd().replace("scripts", "data"), "anna.txt"
         )
         data = get_text(path)
 
-        train_data, val_data = split_data(data, train_frac=.8)
+        train_data, val_data = split_data(data, train_frac=args.train_frac)
 
         unique_chars = list(set(data))
 
@@ -35,28 +44,16 @@ def main(op):
 
         print("unique_chars: ", len(unique_chars))
 
-        batch_size = 128
-        bi_directional = 1
-        dropout=0.5
-        seq_length = 100
-        num_layers = 2
-        hidden_size = 512
-
-        max_norm = 15
-        epochs = 30
-        lr = 1e-3
-        base_rnn_name = 'lstm'
-        base_rnn = get_base_rnn(base_rnn_name)
         vocab_size = len(unique_chars)
 
         model = CharRNN(
-            D=bi_directional, dropout=dropout, num_layers=num_layers, base_rnn=base_rnn,
-            batch_size=batch_size, hidden_size=hidden_size,
+            D=args.bi_directional, dropout=args.dropout, num_layers=args.num_layers, base_rnn=get_base_rnn(args.base),
+            batch_size=args.batch_size, hidden_size=args.hidden_size,
             input_size=vocab_size, output_size=vocab_size
         ).to(device)
 
         ### Objective functions and optimizer
-        opt = optim.Adam(model.parameters(), lr=lr)
+        opt = optim.Adam(model.parameters(), lr=args.lr)
         criterion = nn.CrossEntropyLoss()
 
         model, opt = train_model(
@@ -65,10 +62,10 @@ def main(op):
             train_data,
             val_data,
             criterion,
-            epochs,
-            batch_size,
-            seq_length,
-            max_norm,
+            args.epochs,
+            args.batch_size,
+            args.seq_length,
+            args.max_norm,
             device,
             code_size=len(unique_chars)
         )
@@ -93,12 +90,12 @@ def main(op):
             json.dump(int2char, f, indent=4)
 
         model_params = dict(
-            batch_size=batch_size,
-            D=bi_directional,
-            dropout=dropout,
-            num_layers=num_layers,
-            hidden_size=hidden_size,
-            base_rnn=base_rnn_name,
+            batch_size=args.batch_size,
+            D=args.bi_directional,
+            dropout=args.dropout,
+            num_layers=args.num_layers,
+            hidden_size=args.hidden_size,
+            base_rnn=args.base,
             input_size=vocab_size,
             output_size=vocab_size
         )
@@ -112,8 +109,8 @@ def main(op):
         print(
             "Model persisted!"
         )
-        pass
-    elif op.lower() == "inference":
+
+    elif args.op.lower() == "inference":
         seeds = [
             """Lan al'Mandragoran went up the mountain""",
             """Nevermore, nevermore, the raven said""",
@@ -167,14 +164,94 @@ def main(op):
         )
 
         print(
-            "Generated Text:", "\n", "=="*20, "\n", "".join(generated_seed_list)
+            "Generated Text:", "=="*20, "".join(generated_seed_list), sep='\n'
         )
-        pass
+
     else:
         print("Only train and inference operations allowed!")
     return
 
 
+def parse_args(args):
+    args.add_argument(
+        "--op",
+        choices=['train', 'inference'],
+        default='train',
+        type=str
+    )
+    args.add_argument(
+        "--batch_size",
+        type=int,
+        default=128,
+    )
+
+    args.add_argument(
+        "--bi_directional",
+        type=int,
+        default=1,
+        choices=[0, 1]
+    )
+
+    args.add_argument(
+        "--dropout",
+        default=0.5,
+        type=float,
+    )
+
+    args.add_argument(
+        "--seq_length",
+        type=int,
+        default=100,
+    )
+
+    args.add_argument(
+        "--num_layers",
+        type=int,
+        default=2
+    )
+
+    args.add_argument(
+        "--hidden_size",
+        default=512,
+        type=int
+    )
+
+    args.add_argument(
+        "--max_norm",
+        default=15,
+        type=Union[float, int]
+    )
+
+    args.add_argument(
+        "--lr",
+        default=1e-3,
+        type=float
+    )
+
+    args.add_argument(
+        "--epochs",
+        default=30,
+        type=int
+    )
+
+    args.add_argument(
+        "--base",
+        type=str,
+        default="lstm",
+        choices=['lstm', 'gru', 'rnn']
+    )
+
+    args.add_argument(
+        "--train_frac",
+        default=.8,
+        type=float,
+    )
+
+    print("Added all arguments")
+
+    return args
+
+
 if __name__ == "__main__":
-    op = 'inference'
-    main(op)
+
+    main()
